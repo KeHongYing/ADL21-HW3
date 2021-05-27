@@ -7,7 +7,7 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
 from tqdm.auto import tqdm
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -34,13 +34,23 @@ def main(args):
     with open(args.data_dir / args.data, "r") as f:
         data = [json.loads(line) for line in f.read().splitlines()]
 
+    if args.tokenizer is None:
+        tokenizer = AutoTokenizer.from_pretrained(args.backbone)
+    else:
+        tokenizer = pickle.load(open(args.tokenizer, "rb"))
+
     output = []
     for d in tqdm(data, desc="preprocessing data..."):
+        title = d["title"]
+        maintext = d["maintext"]
+        Id = d["id"]
+
+        split_text = maintext.split("\n")
         output.append(
             {
-                "title": d["title"],
-                "maintext": d["maintext"],
-                "id": d["id"],
+                "title": title,
+                "maintext": split_text,
+                "id": Id,
             }
         )
 
@@ -81,6 +91,25 @@ def parse_args() -> Namespace:
         "--training", help="preprocess training data or not", action="store_true"
     )
     parser.add_argument("--max_len", type=int, help="token max length.", default=512)
+    parser.add_argument(
+        "--backbone",
+        help="tokenizer backbone",
+        type=str,
+        default="google/mt5-small",
+    )
+    # tokenizer
+    parser.add_argument(
+        "--tokenizer_dir",
+        type=Path,
+        help="Directory to save the tokenizer.",
+        default="./tokenizer",
+    )
+    parser.add_argument(
+        "--tokenizer",
+        type=str,
+        help="tokenizer path.",
+        default=None,
+    )
 
     args = parser.parse_args()
     return args
