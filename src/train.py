@@ -1,9 +1,10 @@
+from collections import defaultdict
 import json
 import pickle
 import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import DefaultDict, Dict
+from typing import Dict
 
 from tqdm import tqdm
 import torch
@@ -19,19 +20,20 @@ from choose_low_utility_gpu import choose_low_utility_gpu
 TRAIN = "train"
 DEV = "val"
 SPLITS = [TRAIN, DEV]
-learning_curve = DefaultDict(list)
+learning_curve = defaultdict(list)
 
 
 def iter_loop(
     dataloader: DataLoader,
     model: AutoModelForSeq2SeqLM,
     optimizer: torch.optim,
+    accumulate_step: int,
     device: torch.device,
     mode: str,
     compute_matric: ComputeMatrics,
 ) -> None:
     total_correct = 0
-    total_rouge = DefaultDict(int)
+    total_rouge = defaultdict(int)
     total_loss = 0
 
     if mode == TRAIN:
@@ -39,9 +41,13 @@ def iter_loop(
     elif mode == DEV:
         model.eval()
 
+    step = 0
     with torch.set_grad_enabled(mode == TRAIN):
         with tqdm(dataloader, unit="batch") as tepoch:
+            optimizer.zero_grad()
+
             for data in tepoch:
+                step += 1
                 tepoch.set_description(f"[{mode:>5}]")
 
                 input_ids = data["input_ids"].to(device)
@@ -62,9 +68,11 @@ def iter_loop(
                 total_loss += loss
 
                 if mode == TRAIN:
-                    optimizer.zero_grad()
                     loss.backward()
-                    optimizer.step()
+
+                    if step % accumulate_step == 0:
+                        optimizer.step()
+                        optimizer.zero_grad()
 
                 if mode == DEV:
                     tepoch.set_postfix(
@@ -106,7 +114,7 @@ def iter_loop(
 
 def environment_set(seed: int = 42, limit: int = 5000):
     os.environ["CUDA_VISIBLE_DEVICES"] = str(choose_low_utility_gpu(limit))
-    torch.manual_seed(args.seed)
+    torch.manual_seed(seed)
     tf.random.set_seed(seed)
 
 
@@ -146,19 +154,29 @@ def main(args):
     for epoch in range(args.num_epoch):
         print(f"Epoch: {epoch + 1}")
         iter_loop(
-            dataloader[TRAIN], model, optimizer, args.device, TRAIN, compute_matrics
+            dataloader[TRAIN],
+            model,
+            optimizer,
+            args.accumulate_step,
+            args.device,
+            TRAIN,
+            compute_matrics,
         )
         acc, loss = iter_loop(
-            dataloader[DEV], model, optimizer, args.device, DEV, compute_matrics
+            dataloader[DEV],
+            model,
+            optimizer,
+            args.accumulate_step,
+            args.device,
+            DEV,
+            compute_matrics,
         )
 
         if loss < min_loss:
             max_acc = acc
             min_loss = loss
-            torch.save(
-                model.state_dict(),
-                ckpt_dir / f"{args.model}_best.pt",
-            )
+
+            model.save_pretrained(ckpt_dir / "best")
             print(f"model is better than before, save model to {args.model}_best.pt")
 
         if loss > min_loss:
@@ -172,7 +190,7 @@ def main(args):
             break
 
     print(f"Done! Best model Acc: {(100 * max_acc):>.4f}%")
-    model.save_pretrained(ckpt_dir)
+    model.save_pretrained(ckpt_dir / "last")
 
     with open(ckpt_dir / f"learning_curve.json", "w") as f:
         json.dump(learning_curve, f)
@@ -214,6 +232,7 @@ def parse_args() -> Namespace:
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cpu"
     )
     parser.add_argument("--num_epoch", type=int, default=500)
+    parser.add_argument("--accumulate_step", type=int, default=8)
 
     # misc
     parser.add_argument("--seed", type=int, default=0xB06902074)
