@@ -14,4 +14,12 @@ class ComputeMatrics:
         )
         decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
+        decoded_preds = [self.fill_empty(pred) for pred in decoded_preds]
+        decoded_labels = [self.fill_empty(label) for label in decoded_labels]
+
         return get_rouge(decoded_preds, decoded_labels)
+
+    def fill_empty(self, candidate):
+        if len(candidate) > 0:
+            return candidate
+        return "空"

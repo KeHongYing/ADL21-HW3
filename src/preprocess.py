@@ -62,7 +62,7 @@ def main(args):
         with open(args.output_dir / "val.json", "w") as f:
             json.dump(val, f, ensure_ascii=False, indent=4)
     else:
-        with open(args.output_dir / args.data, "w") as f:
+        with open(args.output_dir / args.output, "w") as f:
             json.dump(output, f, ensure_ascii=False, indent=4)
 
 
@@ -79,6 +79,12 @@ def parse_args() -> Namespace:
         type=Path,
         help="Path to the question.",
         default="train.jsonl",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="Path to the output file.",
+        default="public.json",
     )
     parser.add_argument("--rand_seed", type=int, help="Random seed.", default=13)
     parser.add_argument(

@@ -2,7 +2,6 @@ import json
 from typing import List, Dict
 
 import torch
-from torch._C import dtype
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
@@ -30,6 +29,7 @@ class NLGDataset(Dataset):
     def collate_fn(self, sample) -> Dict:
         labels = []
         input_ids = []
+        Id = []
         for s in sample:
             labels.append(
                 self.tokenizer.encode(
@@ -54,9 +54,12 @@ class NLGDataset(Dataset):
                 )
             )
 
+            Id.append(s["id"])
+
         return {
             "labels": torch.tensor(labels, dtype=torch.long),
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
+            "id": Id,
         }
 
 

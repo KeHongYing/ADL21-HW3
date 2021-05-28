@@ -1,7 +1,6 @@
 from collections import defaultdict
 import json
 import pickle
-import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import Dict
@@ -15,7 +14,7 @@ from transformers import AutoModelForSeq2SeqLM, Adafactor, AutoTokenizer
 
 from dataset import NLGDataset
 from ComputeMatrics import ComputeMatrics
-from choose_low_utility_gpu import choose_low_utility_gpu
+from utils import environment_set
 
 TRAIN = "train"
 DEV = "val"
@@ -112,12 +111,6 @@ def iter_loop(
     return total_correct, total_loss
 
 
-def environment_set(seed: int = 42, limit: int = 5000):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(choose_low_utility_gpu(limit))
-    torch.manual_seed(seed)
-    tf.random.set_seed(seed)
-
-
 def main(args):
     environment_set(args.seed)
     tokenizer = AutoTokenizer.from_pretrained(args.backbone)
@@ -149,6 +142,9 @@ def main(args):
     )
     ckpt_dir = args.ckpt_dir / backbone
     ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(ckpt_dir / "tokenizer.pkl", "wb") as f:
+        pickle.dump(tokenizer, f)
 
     compute_matrics = ComputeMatrics(tokenizer)
     for epoch in range(args.num_epoch):
