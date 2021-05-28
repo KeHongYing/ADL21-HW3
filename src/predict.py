@@ -40,7 +40,15 @@ def main(args):
                 input_ids = data["input_ids"].to(args.device)
                 Id = data["id"]
 
-                pred = model.generate(input_ids, max_length=128)
+                pred = model.generate(
+                    input_ids,
+                    max_length=128,
+                    do_sample=args.do_sample,
+                    num_beams=args.num_beams,
+                    no_repeat_ngram_size=args.no_repeat_ngram_size,
+                    top_k=args.top_k,
+                    top_p=args.top_p,
+                )
                 text = tokenizer.batch_decode(pred, skip_special_tokens=True)
 
                 result.extend(
@@ -69,6 +77,20 @@ def parse_args() -> Namespace:
     )
     parser.add_argument("--seed", type=int, default=0xB06902074)
     parser.add_argument("--tokenizer", help="tokenizer path", required=True)
+    parser.add_argument("--num_beams", help="number of beams", type=int, default=1)
+    parser.add_argument(
+        "--no_repeat_ngram_size",
+        help="number of no repeate ngram size",
+        type=int,
+        default=2,
+    )
+
+    parser.add_argument("--top_k", help="number of k", type=int, default=50)
+    parser.add_argument("--top_p", help="number of p", type=float, default=1.0)
+    parser.add_argument(
+        "--do_sample", help="do sample for top k and top p", action="store_true"
+    )
+
     args = parser.parse_args()
     return args
 
