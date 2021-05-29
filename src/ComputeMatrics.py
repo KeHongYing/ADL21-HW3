@@ -18,7 +18,11 @@ class ComputeMatrics:
         decoded_preds = [self.fill_empty(pred) for pred in decoded_preds]
         decoded_labels = [self.fill_empty(label) for label in decoded_labels]
 
-        return get_rouge(decoded_preds, decoded_labels)
+        score = get_rouge(decoded_preds, decoded_labels)
+        for key in score:
+            score[key] = score[key]["f"]
+        
+        return score
 
     def fill_empty(self, candidate):
         if len(candidate) > 0:

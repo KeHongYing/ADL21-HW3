@@ -9,7 +9,7 @@ from transformers import AutoModelForSeq2SeqLM
 from tqdm import tqdm
 import jsonlines
 
-from dataset import NLGDataset
+from trainer_dataset import NLGDataset
 from utils import environment_set
 
 
@@ -23,7 +23,11 @@ def main(args):
         data = json.load(f)
 
     dataset = NLGDataset(
-        data, tokenizer, args.input_truncation_len, args.output_truncation_len
+        data,
+        tokenizer,
+        args.input_truncation_len,
+        args.output_truncation_len,
+        "predict",
     )
     dataloader = DataLoader(
         dataset, batch_size=args.batch_size, collate_fn=dataset.collate_fn

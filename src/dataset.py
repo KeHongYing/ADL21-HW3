@@ -1,4 +1,6 @@
 import json
+from os import truncate
+import random
 from typing import List, Dict
 
 import torch
@@ -13,59 +15,56 @@ class NLGDataset(Dataset):
         tokenizer: AutoTokenizer,
         input_truncation_len: int = 512,
         output_truncation_len: int = 64,
+        mode: str = "train",
     ):
         self.data = data
         self.tokenizer = tokenizer
         self.input_truncation_len = input_truncation_len
         self.output_truncation_len = output_truncation_len
+        self.mode = mode
 
     def __len__(self) -> int:
         return len(self.data)
 
     def __getitem__(self, index) -> Dict:
         instance = self.data[index]
-        return instance
+        input_ids = ""
+        for text in instance["maintext"]:
+            if len(input_ids) + len(text) <= self.input_truncation_len:
+                input_ids += text
 
-    def collate_fn(self, sample) -> Dict:
-        labels = []
-        input_ids = []
-        Id = []
-        for s in sample:
-            labels.append(
-                self.tokenizer.encode(
-                    s["title"],
-                    max_length=self.output_truncation_len,
+        return (
+            {
+                "input_ids": self.tokenizer.encode(
+                    input_ids,
                     truncation=True,
-                    padding="max_length",
-                )
-            )
-            length = [len(s["maintext"][-1])] * len(s["maintext"])
-            for i in range(len(s["maintext"]) - 2, -1, -1):
-                length[i] = len(s["maintext"][i]) + length[i + 1]
-
-            maintext = ""
-            for text in s["maintext"]:
-                if len(maintext + text) < self.input_truncation_len / 2:
-                    maintext += text
-                else:
-                    break
-            for idx, text in enumerate(s["maintext"]):
-                if length[idx] < self.input_truncation_len / 2:
-                    maintext += text
-
-            input_ids.append(
-                self.tokenizer.encode(
-                    maintext,
                     max_length=self.input_truncation_len,
-                    truncation=True,
                     padding="max_length",
-                )
-            )
+                ),
+                "labels": self.tokenizer.encode(
+                    instance["title"],
+                    truncation=True,
+                    max_length=self.output_truncation_len,
+                    padding="max_length",
+                ),
+            }
+            if self.mode == "train"
+            else {
+                "input_ids": self.tokenizer.encode(
+                    input_ids,
+                    truncation=True,
+                    max_length=self.input_truncation_len,
+                    padding="max_length",
+                ),
+                "id": instance["id"],
+            }
+        )
 
-            Id.append(s["id"])
+    def collate_fn(self, sample: Dict) -> Dict:
+        input_ids = [s["input_ids"] for s in sample]
+        Id = [s["id"] for s in sample]
 
         return {
-            "labels": torch.tensor(labels, dtype=torch.long),
             "input_ids": torch.tensor(input_ids, dtype=torch.long),
             "id": Id,
         }
