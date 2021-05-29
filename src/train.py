@@ -67,7 +67,7 @@ def iter_loop(
                 total_loss += loss
 
                 if mode == TRAIN:
-                    loss.backward()
+                    (loss / accumulate_step).backward()
 
                     if step % accumulate_step == 0:
                         optimizer.step()
@@ -117,7 +117,10 @@ def main(args):
     data_paths = {split: args.cache_dir / f"{split}.json" for split in SPLITS}
     data = {split: json.loads(path.read_text()) for split, path in data_paths.items()}
     datasets: Dict[str, NLGDataset] = {
-        split: NLGDataset(split_data, tokenizer) for split, split_data in data.items()
+        split: NLGDataset(
+            split_data, tokenizer, args.input_truncation_len, args.output_truncation_len
+        )
+        for split, split_data in data.items()
     }
 
     dataloader = {
@@ -133,6 +136,12 @@ def main(args):
     model = AutoModelForSeq2SeqLM.from_pretrained(args.backbone).to(args.device)
 
     optimizer = Adafactor(params=model.parameters(), weight_decay=args.weight_decay)
+    # optimizer = torch.optim.AdamW(
+    #     params=model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+    # )
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, min_lr=1e-7, patience=3
+    # )
 
     max_acc, min_loss = 0, 100
     early_stop = 0
@@ -140,10 +149,10 @@ def main(args):
     backbone = (
         args.backbone if "/" not in args.backbone else args.backbone.split("/")[1]
     )
-    ckpt_dir = args.ckpt_dir / backbone
+    ckpt_dir = args.ckpt_dir / backbone / args.model
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(ckpt_dir / "tokenizer.pkl", "wb") as f:
+    with open(args.ckpt_dir / backbone / "tokenizer.pkl", "wb") as f:
         pickle.dump(tokenizer, f)
 
     compute_matrics = ComputeMatrics(tokenizer)
@@ -167,6 +176,8 @@ def main(args):
             DEV,
             compute_matrics,
         )
+
+        # scheduler.step(loss)
 
         if loss < min_loss:
             max_acc = acc
@@ -242,6 +253,12 @@ def parse_args() -> Namespace:
     )
     parser.add_argument(
         "--no_pretrained", help="do not use pretrained weight", action="store_true"
+    )
+    parser.add_argument(
+        "--input_truncation_len", help="maintext truncate length", type=int, default=512
+    )
+    parser.add_argument(
+        "--output_truncation_len", help="title truncate length", type=int, default=64
     )
 
     args = parser.parse_args()

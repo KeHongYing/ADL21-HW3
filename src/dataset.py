@@ -39,12 +39,20 @@ class NLGDataset(Dataset):
                     padding="max_length",
                 )
             )
+            length = [len(s["maintext"][-1])] * len(s["maintext"])
+            for i in range(len(s["maintext"]) - 2, -1, -1):
+                length[i] = len(s["maintext"][i]) + length[i + 1]
+
             maintext = ""
             for text in s["maintext"]:
-                if len(maintext + text) < self.input_truncation_len:
+                if len(maintext + text) < self.input_truncation_len / 2:
                     maintext += text
                 else:
                     break
+            for idx, text in enumerate(s["maintext"]):
+                if length[idx] < self.input_truncation_len / 2:
+                    maintext += text
+
             input_ids.append(
                 self.tokenizer.encode(
                     maintext,
@@ -75,8 +83,6 @@ if __name__ == "__main__":
     )
 
     for d in dataloader:
-        print(d["labels"])
-        print(d["input_ids"])
-        print()
-
-        break
+        # print(d["labels"])
+        # print(d["input_ids"])
+        print(d["input_ids"].shape)

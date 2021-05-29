@@ -22,7 +22,9 @@ def main(args):
     with open(args.test_file, "r") as f:
         data = json.load(f)
 
-    dataset = NLGDataset(data, tokenizer)
+    dataset = NLGDataset(
+        data, tokenizer, args.input_truncation_len, args.output_truncation_len
+    )
     dataloader = DataLoader(
         dataset, batch_size=args.batch_size, collate_fn=dataset.collate_fn
     )
@@ -89,6 +91,12 @@ def parse_args() -> Namespace:
     parser.add_argument("--top_p", help="number of p", type=float, default=1.0)
     parser.add_argument(
         "--do_sample", help="do sample for top k and top p", action="store_true"
+    )
+    parser.add_argument(
+        "--input_truncation_len", help="maintext truncate length", default=512
+    )
+    parser.add_argument(
+        "--output_truncation_len", help="title truncate length", default=64
     )
 
     args = parser.parse_args()
