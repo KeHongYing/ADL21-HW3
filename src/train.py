@@ -136,12 +136,6 @@ def main(args):
     model = AutoModelForSeq2SeqLM.from_pretrained(args.backbone).to(args.device)
 
     optimizer = Adafactor(params=model.parameters(), weight_decay=args.weight_decay)
-    # optimizer = torch.optim.AdamW(
-    #     params=model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-    # )
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #     optimizer, min_lr=1e-7, patience=3
-    # )
 
     max_acc, min_loss = 0, 100
     early_stop = 0
@@ -176,8 +170,6 @@ def main(args):
             DEV,
             compute_matrics,
         )
-
-        # scheduler.step(loss)
 
         if loss < min_loss:
             max_acc = acc

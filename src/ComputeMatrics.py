@@ -1,6 +1,5 @@
 from transformers import AutoTokenizer
 from tw_rouge import get_rouge
-import torch
 
 
 class ComputeMatrics:
